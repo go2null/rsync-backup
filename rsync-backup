@@ -1,0 +1,108 @@
+#!/bin/sh
+
+##:2013-04-22:0.0.0:go2null
+## * initial release
+##
+##:2013-04-24:0.1.0:go2null
+## * Changed shell from bash to sh, as is POSIX compliant
+##
+##:2013-04-25:0.2.0:go2null
+## * NEW: Added options to autoremove oldest backups if free space (KB or %) falls below either minimum
+## * NEW: Added MAX # backups to keep
+
+## User variables
+BAK_DIR='/home/administrator/backup'
+## Num backups to keep, more will be deleted automatically if free space falls below MIN_KB or MIN_%
+BAK_KEEP_MIN=8
+BAK_KEEP_MAX=32
+BAK_SPACE_KB_MIN=20000000
+BAK_SPACE_PC_MIN=20
+BAK_SOURCE=$HOME
+
+## app variables
+## set IFS to newline, required for 'for' loops to parse DIR with space in names correctly
+IFS="
+"
+
+## app functions
+printMsg () {
+	case "$1" in
+	1)
+		echo ''; echo "!! WARNING: $2"
+		;;
+	2)
+		echo ''; echo "!! ERROR: $2"
+		exit $1
+		;;
+	*)
+		echo ''; echo '!! ERROR: Unknown error.'
+		exit 99
+		;;
+	esac
+}
+
+getFreeSpace() {
+## return SIZE if less than MIN
+## otherwise, return NULL
+	#BAK_SPACE_KB=$(df "$BAK_DIR" | awk '!/Filesystem/ && $4 < '$BAK_SPACE_KB_MIN' {print $4}')
+	BAK_SPACE_KB=$(df "$BAK_DIR" | awk '!/Filesystem/ {print $4-0}')
+	BAK_SPACE_PC=$(df "$BAK_DIR" | awk '!/Filesystem/ {print $5-0}')
+}
+
+## validations
+[ -d "$BAK_DIR" ] || printMsg 2 "Invalid backup directory '$BAK_DIR'."
+
+## prune (old) backups -gt $BAK_KEEP_MAX
+BAK_CNT=$(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regex '[0-9]{8}-[0-9]{6}' | sort -r); do
+	[ "$BAK_CNT" -gt "$BAK_KEEP_MAX" ] && { echo "$BAK_CNT"  rm -rf "$DIR"; } || { break; }
+	: $((BAK_CNT-=1))
+done
+
+## check free space on BAK_DIR
+getFreeSpace
+while [ "$BAK_SPACE_KB" -lt "$BAK_SPACE_KB_MIN" ] || [ "$BAK_SPACE_PC" -lt "$BAK_SPACE_PC_MIN" ]; do
+	if [ "$BAK_CNT" -gt "$BAK_KEEP_MIN" ]; then
+		## remove oldest, using 'for' as quick way to get DIR
+		for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regex '[0-9]{8}-[0-9]{6}' | sort -r); do
+			echo rm -rf "$DIR"
+			## just do 1st DIR in list (which is oldest as 'sort -r')
+			break
+		done
+	else
+		printMsg 2 "Not enough free space for backup to:
+	$BAK_DIR
+Free space Available/Minimum:
+	$BAK_SPACE_KB / $BAK_SPACE_KB_MIN KB
+	$BAK_SPACE_PC / $BAK_SPACE_PC_MIN %"
+	fi
+	: $((BAK_CNT-=1))
+	getFreeSpace
+done
+
+# Create directory for current backup
+TIME_STAMP=$(date +%F-%H%M%S)
+mkdir -p "$BAK_DIR/$TIME_STAMP" || printMsg 2 "Cannot write to backup dir '$BAK_DIR'."
+
+## Backup
+echo ''; echo "** Backing up files. **"
+## cp on 1st run, else rsync
+if [ -e "$BAK_DIR/last" ]; then
+	## if 'last' is not a symlink, then it may be a file or dir, and so may have user data
+	if [ -L "$BAK_DIR/last" ]; then
+		rsync -axP --link-dest="$BAK_DIR/last" "$BAK_SOURCE/" "$BAK_DIR/$TIME_STAMP"
+	else
+		printMsg 2 "'$BAK_DIR/last' should be a symlink to the last backup."
+	fi
+else
+	cp -axl "$BAK_SOURCE/" "$BAK_DIR/$TIME_STAMP/redmine_files"
+fi
+if [ $? -gt 0 ]; then
+	printMsg 1 "Files backup failed."
+else
+	echo "** Files backed up. **"
+fi
+
+## update "last" link
+rm "$BAK_DIR/last" || printMsg 2 "Cannot update '$BAK_DIR/last' symlink."
+ln -s "$BAK_DIR/$TIME_STAMP" "$BAK_DIR/last" || printMsg 2 "Cannot update '$BAK_DIR/last' symlink."
