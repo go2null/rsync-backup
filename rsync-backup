@@ -1,5 +1,6 @@
 #!/bin/sh
 
+## == RELEASE NOTES =============================================== ##
 ##:2013-04-22:0.0.0:go2null
 ## * initial release
 ##
@@ -9,100 +10,164 @@
 ##:2013-04-25:0.2.0:go2null
 ## * NEW: Added options to autoremove oldest backups if free space (KB or %) falls below either minimum
 ## * NEW: Added MAX # backups to keep
+##
+##:2013-05-06:0.3.0:go2null
+## * NEW: Creates a 'previous' symlink, allow other backup scripts to use a rsync --link-dest
+##
+##:2013-05-07:0.4.0:go2null
+## * FIX: BAK_SPACE_MB was calculated incorrectly
+## * NEW: Added output INFO messages
+## * NEW: checks free space after backup
 
-## User variables
-BAK_DIR='/home/administrator/backup'
+## == USER SETTINGS =============================================== ##
+BAK_DIR='/var/backups'
 ## Num backups to keep, more will be deleted automatically if free space falls below MIN_KB or MIN_%
 BAK_KEEP_MIN=8
 BAK_KEEP_MAX=32
-BAK_SPACE_KB_MIN=20000000
-BAK_SPACE_PC_MIN=20
-BAK_SOURCE=$HOME
+BAK_SPACE_MB_MIN=10000
+BAK_SPACE_PC_MIN=5
+## path of directories and files to backup
+BAK_1='/etc/apache2/ports.conf'
+BAK_2='/etc/apache2/sites-available/rdq3'
+BAK_3='/etc/apache2/ssl'
+PTN_3="--exclude='*.key' --include'*/' --exclude='*'"
+BAK_4='/etc/hosts'
+BAK_5='/etc/logrotate.conf'
+BAK_6='/etc/network/interfaces'
+BAK_7='/etc/resolv.conf'
+BAK_8='/etc/sudoers'
+BAK_11='/var/log'
+BAK_12='/etc/apt/sources.list'
+BAK_13='/etc/apt/apt.conf.d/99NoRecommends'
+BAK_14='/etc/fstab'
 
-## app variables
+## == FUNCTIONS =================================================== ##
+getFreeSpace() {
+	BAK_SPACE_MB=$(df -Pk "$BAK_DIR" | awk '!/Filesystem/ {print int($4/1024)}')
+	BAK_SPACE_PC=$(df -Pk "$BAK_DIR" | awk '!/Filesystem/ {print 100-$5}')
+}
+
+pruneIfSpaceLow() {
+	getFreeSpace
+
+	## set IFS to newline, required for 'for' loops to parse DIR with space in names correctly
+	IFS_PREV=$IFS
+	IFS="
+	"
+	while [ "$BAK_SPACE_MB" -lt "$BAK_SPACE_MB_MIN" ] || [ "$BAK_SPACE_PC" -lt "$BAK_SPACE_PC_MIN" ]; do
+		if [ "$1" = "before" -a "$BAK_CNT" -ge "$BAK_KEEP_MIN" ] || [ "$1" = "after" -a "$BAK_CNT" -gt "$BAK_KEEP_MIN" ]; then
+			## remove oldest, using 'for' as quick way to get DIR
+			for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' | sort -r); do
+				echo "INFO: Deleting to free up space: $DIR"
+				echo rm -rf "$DIR"
+				## just do 1st DIR in list (which is oldest as 'sort -r')
+				break
+			done
+		else
+			if [ "$1" = "after" ]; then
+				echo 'WARNING: Free space on backup volume below minimums'
+			else
+				echo "INFO: Free space available:       $BAK_SPACE_PC % / $BAK_SPACE_MB MB"
+				echo 'ERROR: Not enough free space on backup volume'
+				exit 1
+			fi
+		fi
+		: $((BAK_CNT-=1))
+		getFreeSpace
+	done
+	echo "INFO: Free space available:       $BAK_SPACE_PC % / $BAK_SPACE_MB MB"
+	## reset IFS
+	IFS=$IFS_PREV
+}
+
+## == HEADER ==== ================================================= ##
+echo "INFO: Backup start time:          $(date +%Y-%m-%d\ %H:%M:%S)"
+echo "INFO: Backup directory:           $BAK_DIR"
+
+## == VALIDATIONS ================================================= ##
+[ -d "$BAK_DIR" ] || mkdir -p "$BAK_DIR"
+[ $? -gt 0 ] && { echo "ERROR: Invalid backup directory '$BAK_DIR'."; exit 1; }
+## if 'latest' is not a symlink, then it may be a file or dir, and so may have user data
+if [ -e "$BAK_DIR/latest" ]; then
+	[ -L "$BAK_DIR/latest" ] || { echo "ERROR: '$BAK_DIR/latest' should be a symlink to the last backup."; exit 1; }
+fi
+
+## == PRUNE OLD BACKUPS =========================================== ##
 ## set IFS to newline, required for 'for' loops to parse DIR with space in names correctly
+IFS_PREV=$IFS
 IFS="
 "
-
-## app functions
-printMsg () {
-	case "$1" in
-	1)
-		echo ''; echo "!! WARNING: $2"
-		;;
-	2)
-		echo ''; echo "!! ERROR: $2"
-		exit $1
-		;;
-	*)
-		echo ''; echo '!! ERROR: Unknown error.'
-		exit 99
-		;;
-	esac
-}
-
-getFreeSpace() {
-## return SIZE if less than MIN
-## otherwise, return NULL
-	#BAK_SPACE_KB=$(df "$BAK_DIR" | awk '!/Filesystem/ && $4 < '$BAK_SPACE_KB_MIN' {print $4}')
-	BAK_SPACE_KB=$(df "$BAK_DIR" | awk '!/Filesystem/ {print $4-0}')
-	BAK_SPACE_PC=$(df "$BAK_DIR" | awk '!/Filesystem/ {print $5-0}')
-}
-
-## validations
-[ -d "$BAK_DIR" ] || printMsg 2 "Invalid backup directory '$BAK_DIR'."
-
-## prune (old) backups -gt $BAK_KEEP_MAX
-BAK_CNT=$(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
-for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regex '[0-9]{8}-[0-9]{6}' | sort -r); do
-	[ "$BAK_CNT" -gt "$BAK_KEEP_MAX" ] && { echo "$BAK_CNT"  rm -rf "$DIR"; } || { break; }
-	: $((BAK_CNT-=1))
-done
-
-## check free space on BAK_DIR
-getFreeSpace
-while [ "$BAK_SPACE_KB" -lt "$BAK_SPACE_KB_MIN" ] || [ "$BAK_SPACE_PC" -lt "$BAK_SPACE_PC_MIN" ]; do
-	if [ "$BAK_CNT" -gt "$BAK_KEEP_MIN" ]; then
-		## remove oldest, using 'for' as quick way to get DIR
-		for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regex '[0-9]{8}-[0-9]{6}' | sort -r); do
-			echo rm -rf "$DIR"
-			## just do 1st DIR in list (which is oldest as 'sort -r')
-			break
-		done
+## prune (old) backups -gt BAK_KEEP_MAX
+BAK_CNT=$(   find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' | wc -l)
+echo "INFO: # backups, max/current/min: $BAK_KEEP_MAX / $BAK_CNT / $BAK_KEEP_MIN"
+for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' | sort -r); do
+	if [ "$BAK_CNT" -ge "$BAK_KEEP_MAX" ]; then
+		echo "INFO: Pruning old backup #$BAK_CNT: $DIR"
+		rm -rf "$DIR"
 	else
-		printMsg 2 "Not enough free space for backup to:
-	$BAK_DIR
-Free space Available/Minimum:
-	$BAK_SPACE_KB / $BAK_SPACE_KB_MIN KB
-	$BAK_SPACE_PC / $BAK_SPACE_PC_MIN %"
+		break
 	fi
 	: $((BAK_CNT-=1))
-	getFreeSpace
+done
+## reset IFS
+IFS=$IFS_PREV
+
+## prune (old) backup IF free space is low AND -gt BAK_KEEP_MIN
+echo "INFO: Free space minimums:        $BAK_SPACE_PC_MIN % / $BAK_SPACE_MB_MIN MB"
+pruneIfSpaceLow before
+
+## == CREATE DIRECTORY FOR CURRENT BACKUP ========================= ##
+TIME_STAMP=$(date +%Y-%m-%d-%H%M%S)
+BAK_DEST_CURR=$BAK_DIR/$TIME_STAMP
+mkdir "$BAK_DEST_CURR" || { echo "ERROR: Cannot write to backup dir '$BAK_DIR'."; exit 1; }
+
+## == MAIN BACKUP ROUTINE ========================================= ##
+COUNTER=1
+while true; do
+        eval "BAK_SRCE_PATH=\$BAK_$COUNTER"
+        eval "PTN=\$PTN_$COUNTER"
+        ## stop on 1st blank source
+        if [ -z "$BAK_SRCE_PATH" ]; then
+                echo "INFO: Backup complete"
+                break
+        else
+                echo "INFO: Backing up $BAK_SRCE_PATH"
+                ## ignore missing sources 
+                if [ -e "$BAK_SRCE_PATH" ]; then
+                        ## added "/" before $BAK_SRCE_PATH to allow for relative source paths
+                        ##      the "//" in the result is handled correctly by mkdir, ln and rsync
+                        BAK_DEST_PATH="$BAK_DEST_CURR/$BAK_SRCE_PATH"
+                        BAK_LINK_PATH="$BAK_DIR/latest/$BAK_SRCE_PATH"
+
+                        ## rsync does not create parent directories, only final target directory.
+                        ##      creating parent directory as the target may be a file.
+                        BAK_DEST_PARENT=$(dirname -- "$BAK_DEST_PATH")
+                        [ -e "$BAK_DEST_PARENT" ] || mkdir -p "$BAK_DEST_PARENT"
+                        [ -d "$BAK_DEST_PARENT" ] || { echo "WARNING: Bad destination, skipping."; continue; }
+
+                        ## rsync doesn't sync single files with --link-dest option
+                        ##      http://stackoverflow.com/questions/7100900/rsync-link-dest-option-for-single-file
+                        ##      https://bugzilla.samba.org/show_bug.cgi?id=8594
+                        if [ -f "$BAK_SRCE_PATH" ]; then
+                                ## as rsync creates a new file (inode), 
+                                ##      then the purpose of the ln is to create a target for rsync to minimize data transfer??
+                                [ -e "$BAK_LINK_PATH" ] && ln "$BAK_LINK_PATH"                         "$BAK_DEST_PATH"
+                                rsync -aP                                             "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
+                        else
+                                rsync -aPx        --link-dest="$BAK_LINK_PATH" "$PTN" "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
+                        fi
+			[ $? -gt 0 ] && echo "WARNING: error occured"
+                fi
+                COUNTER=$(($COUNTER+1))
+        fi
 done
 
-# Create directory for current backup
-TIME_STAMP=$(date +%F-%H%M%S)
-mkdir -p "$BAK_DIR/$TIME_STAMP" || printMsg 2 "Cannot write to backup dir '$BAK_DIR'."
+## == PRUNE OLD BACKUPS =========================================== ##
+## prune (old) backup IF free space is low AND -gt BAK_KEEP_MIN
+## main (only?) reason for running again is to provide a warning, that, in effect, the next backup will fail
+pruneIfSpaceLow after
 
-## Backup
-echo ''; echo "** Backing up files. **"
-## cp on 1st run, else rsync
-if [ -e "$BAK_DIR/last" ]; then
-	## if 'last' is not a symlink, then it may be a file or dir, and so may have user data
-	if [ -L "$BAK_DIR/last" ]; then
-		rsync -axP --link-dest="$BAK_DIR/last" "$BAK_SOURCE/" "$BAK_DIR/$TIME_STAMP"
-	else
-		printMsg 2 "'$BAK_DIR/last' should be a symlink to the last backup."
-	fi
-else
-	cp -axl "$BAK_SOURCE/" "$BAK_DIR/$TIME_STAMP/redmine_files"
-fi
-if [ $? -gt 0 ]; then
-	printMsg 1 "Files backup failed."
-else
-	echo "** Files backed up. **"
-fi
-
-## update "last" link
-rm "$BAK_DIR/last" || printMsg 2 "Cannot update '$BAK_DIR/last' symlink."
-ln -s "$BAK_DIR/$TIME_STAMP" "$BAK_DIR/last" || printMsg 2 "Cannot update '$BAK_DIR/last' symlink."
+## == UPDATE SYMLINKS ============================================= ##
+rm "$BAK_DIR/previous"                         || echo "WARNING: Cannot remove '$BAK_DIR/previous' symlink."
+mv "$BAK_DIR/latest" "$BAK_DIR/previous"       || echo "WARNING: Cannot update '$BAK_DIR/previous symlink."
+ln -s "$BAK_DIR/$TIME_STAMP" "$BAK_DIR/latest" || { echo "ERROR: Cannot update '$BAK_DIR/latest' symlink."; exit 1; }
