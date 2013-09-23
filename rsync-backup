@@ -24,26 +24,47 @@ VERSION=2013-06-11:0.6.0:go2null
 VERSION=2013-09-16:0.7.0:go2null
 # * NEW:  split out user settings into .conf file
 # * NEW:  all options can be specified as input parameters
+VERSION=2013-09-23:0.8.0:go2null
+# * FIX:  'latest' symlink is invalid for relative paths
+# * NEW:  Updated description to add example conf file.
+# * NEW:  Add -h option to diplay help
 
 # == FUNCTIONS =================================================== #
 printHelp() {
 printf %s "
 VERISION: $VERSION
-USAGE: $(basename -- "$0") -b DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
+USAGE: $(basename -- "$0") -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
 OPTIONS:
   -f FILE      - config file. Can be specified multiple times in order of increasing priority.
-  -d DIRECTORY - directory to backup to
+  -d DIRECTORY - directory to backup to.
   -k NUMBER    - minimum backups to keep. Default is 1.
   -K NUMBER    - maximum backups to keep.
   -s NUMBER    - minimum free space to reserve, in MB.
   -S NUMBER    - minimum free space to reserve, as %.
   -o           - by default, -k is overridden when -s or -S is met.
-                 This option disables this behaviour. Impact is that the backup is not done.
+                 This option disables this behaviour. Impact is that the backup is not done if -s or S is met.
+  -h           - Display this help.
 DESCRIPTION:
 * Creates "YYYY-MM-DD-HHMMSS" directories in BAK_DIR
 * Creates a 'latest' symlink, pointing to the backup made
 * Creates a 'previous' symlink, allow other backup scripts to use a rsync --link-dest
-"}
+* Example .conf file
+BAK_DIR='/var/backups'
+## Num backups to keep
+BAK_KEEP_MIN=7
+BAK_KEEP_MAX=31
+BAK_SPACE_MB_MIN=1000
+BAK_SPACE_PC_MIN=5
+## Override KEEP_MIN if free space falls below MIN_KB or MIN_%
+BAK_MIN_OVERRIDE=1
+## path of directories and files to backup
+##   directories must end with '/'
+BAK_1=\"\$HOME/\"
+BAK_2='/etc/apache2/ports.conf'
+BAK_3='/etc/apache2/ssl'
+PTN_3=\"--exclude='*.key' --include'*/' --exclude='*'\"
+"
+}
 
 getFreeSpace() {
 	BAK_SPACE_MB=$(df -Pk "$BAK_DIR" | awk '!/Filesystem/ {print int($4/1024)}')
@@ -52,14 +73,14 @@ getFreeSpace() {
 
 pruneIfSpaceLow() {
 	getFreeSpace
+	echo "INFO: Free space $1          $BAK_SPACE_PC % / $BAK_SPACE_MB MB"
 
 	# set IFS to newline, required for 'for' loops to parse DIR with space in names correctly
 	IFS_PREV=$IFS
 	IFS="
 	"
 	while [ "$BAK_SPACE_MB" -lt "$BAK_SPACE_MIN_MB" ] || [ "$BAK_SPACE_PC" -lt "$BAK_SPACE_MIN_PC" ]; do
-		if [ "$1" = "warn" ]; then
-			echo "INFO: Free space available:       $BAK_SPACE_PC % / $BAK_SPACE_MB MB"
+		if [ "$1" = "after: " ]; then
 			echo 'WARNING: Free space on backup volume below minimums'
 			break
 		elif [ $BAK_MIN_OVERRIDE -eq 1 -a $BAK_CNT -gt 0 ] || [ "$BAK_CNT" -ge "$BAK_KEEP_MIN" ]; then
@@ -88,6 +109,9 @@ BAK_KEEP_MIN=1
 BAK_KEEP_MAX=999999999
 # Override KEEP_MIN if free space falls below MIN_KB or MIN_%
 BAK_MIN_OVERRIDE=1
+# Required to be set by pruneIfSpaceLow
+BAK_SPACE_MIN_MB=0
+BAK_SPACE_MIN_PC=0
 
 # == INPUT PARAMETERS =============================================== #
 # get
@@ -100,6 +124,7 @@ while [ $# -gt 0 ]; do
 		-s) BAK_SPACE_MIN_MB=$2    ;;
 		-S) BAK_SPACE_MIN_PC=$2    ;;
 		-o) unset BAK_MIN_OVERRIDE ;;
+		-h) { printHelp; exit; }   ;;
 	esac
 	shift
 done
@@ -107,15 +132,13 @@ done
 # == HEADER ==== ================================================= #
 echo "INFO: Backup start time:          $(date +%Y-%m-%d\ %H:%M:%S)"
 echo "INFO: Backup destination:         $BAK_DIR"
-echo "INFO: Min/Max backup to keep:     $BAK_KEEP_MIN/$BAK_KEEP_MAX"
-echo "INFO: Min free space:             $BAK_SPACE_MIN_MB MB/$BAK_SPACE_MIN_PC %"
-echo "INFO: Override min backups:       $BAK_MIN_OVERRIDE"
 
 # == VALIDATIONS ================================================= #
 if [ -z "$BAK_DIR" ] || { ! mkdir -p "$BAK_DIR"; } 2>/dev/null; then
 	{ echo "ERROR: Invalid backup directory '$BAK_DIR'. Exiting."; 
 	  exit 1; 
 	} >&2
+fi
 # if 'latest' is not a symlink, then it may be a file or dir, and so may have user data
 if [ -e "$BAK_DIR/latest" ] && [ ! -L "$BAK_DIR/latest" ]; then
 	{ echo "ERROR: '$BAK_DIR/latest' should be a symlink to the last backup.";
@@ -130,7 +153,7 @@ IFS="
 "
 # prune (old) backups -gt BAK_KEEP_MAX
 BAK_CNT=$(   find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '.*/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' | wc -l)
-echo "INFO: # backups, max/current/min: $BAK_KEEP_MAX / $BAK_CNT / $BAK_KEEP_MIN"
+echo "INFO: # backups, min/current/max: $BAK_KEEP_MIN / $BAK_CNT / $BAK_KEEP_MAX"
 for DIR in $(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '.*/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' | sort -r); do
 	if [ "$BAK_CNT" -ge "$BAK_KEEP_MAX" ]; then
 		echo "INFO: Pruning old backup #$BAK_CNT: $DIR"
@@ -144,8 +167,9 @@ done
 IFS=$IFS_PREV
 
 # prune (old) backups IF free space is low
+echo "INFO: Override min backups:       $BAK_MIN_OVERRIDE"
 echo "INFO: Free space minimums:        $BAK_SPACE_MIN_PC % / $BAK_SPACE_MIN_MB MB"
-pruneIfSpaceLow before
+pruneIfSpaceLow 'before:'
 
 # == CREATE DIRECTORY FOR CURRENT BACKUP ========================= #
 TIME_STAMP=$(date +%Y-%m-%d-%H%M%S)
@@ -159,7 +183,6 @@ while true; do
         eval "PTN=\$PTN_$COUNTER"
         # stop on 1st blank source
         if [ -z "$BAK_SRCE_PATH" ]; then
-                echo && echo "INFO: Backup complete"
                 break
         else
                 echo && echo "INFO: Backing up $BAK_SRCE_PATH"
@@ -204,10 +227,21 @@ done
 # == PRUNE OLD BACKUPS =========================================== #
 # prune (old) backup IF free space is low AND -gt BAK_KEEP_MIN
 # main (only?) reason for running again is to provide a warning, that, in effect, the next backup will fail
-pruneIfSpaceLow warn
+pruneIfSpaceLow 'after: '
 
 # == UPDATE SYMLINKS ============================================= #
-rm "$BAK_DIR/previous"                         || echo "WARNING: Cannot remove '$BAK_DIR/previous' symlink."
-mv "$BAK_DIR/latest" "$BAK_DIR/previous"       || echo "WARNING: Cannot update '$BAK_DIR/previous symlink."
-ln -s "$BAK_DIR/$TIME_STAMP" "$BAK_DIR/latest" || { echo "ERROR: Cannot update '$BAK_DIR/latest' symlink."; exit 1; }
+if ! rm -f "$BAK_DIR/previous" 2>/dev/null; then
+	echo "WARNING: Cannot remove '$BAK_DIR/previous' symlink."
+fi
+if [ -e "$BAK_DIR/latest" ]; then
+	if ! mv "$BAK_DIR/latest" "$BAK_DIR/previous" 2>/dev/null; then
+		echo "WARNING: Cannot update '$BAK_DIR/previous symlink."
+	fi
+fi
+if ! ln -fs "$TIME_STAMP" "$BAK_DIR/latest" >/dev/null; then
+	echo "ERROR: Cannot update '$BAK_DIR/latest' symlink."
+	exit 1
+fi
 
+# update user/log
+echo "INFO: Backup complete"
