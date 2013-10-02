@@ -3,7 +3,7 @@
 # == FUNCTIONS =================================================== #
 printHelp() {
 printf %s "
-VERISION: $VERSION
+VERSION: 2010-10-02 : 0.8.1 : go2null
 USAGE: $(basename -- "$0") -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
 OPTIONS:
   -f FILE      - config file. Can be specified multiple times in order of increasing priority.
