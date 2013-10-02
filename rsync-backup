@@ -28,6 +28,8 @@ VERSION=2013-09-23:0.8.0:go2null
 # * FIX:  'latest' symlink is invalid for relative paths
 # * NEW:  Updated description to add example conf file.
 # * NEW:  Add -h option to diplay help
+VERSION=2013-10-02:0.8.1:go2null
+# * Minor help text cleanup.
 
 # == FUNCTIONS =================================================== #
 printHelp() {
@@ -45,10 +47,10 @@ OPTIONS:
                  This option disables this behaviour. Impact is that the backup is not done if -s or S is met.
   -h           - Display this help.
 DESCRIPTION:
-* Creates "YYYY-MM-DD-HHMMSS" directories in BAK_DIR
-* Creates a 'latest' symlink, pointing to the backup made
-* Creates a 'previous' symlink, allow other backup scripts to use a rsync --link-dest
-* Example .conf file
+* Creates 'YYYY-MM-DD-HHMMSS' directories in BAK_DIR.
+* Creates a 'latest' symlink, pointing to the backup made.
+* Creates a 'previous' symlink, allow other backup scripts to use a 'rsync --link-dest'.
+* Example '.conf' file.
 BAK_DIR='/var/backups'
 ## Num backups to keep
 BAK_KEEP_MIN=7
