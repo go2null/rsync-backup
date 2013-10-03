@@ -41,23 +41,15 @@ Description
         BAK_3='/etc/apache2/ssl'
         PTN_3="--exclude='*.key' --include'*/' --exclude='*'"
 
-License
--------
-    Copyright (C) 2013  go2null
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+Inspirations/Related
+--------------------
+* [Apple's "Time Machine" Now For Linux... Sort Of](http://hardware.slashdot.org/story/07/11/07/1451235/apples-time-machine-now-for-linux-sort-of)
+  * [Sample shell script](http://hardware.slashdot.org/comments.pl?sid=353197&cid=21271473)
+* [Time Machine for every Unix out there](http://blog.interlinked.org/tutorials/rsync_time_machine.html)
+* [Easy Automated Snapshot-Style Backups with Linux and Rsync](http://www.mikerubel.org/computers/rsync_snapshots/)
+* [FlyBack](https://code.google.com/p/flyback/)
+* [rsnapshot](http://www.rsnapshot.org/)
+* [Dirvish](http://www.dirvish.org/)
 
 Release Notes
 -------------
@@ -91,3 +83,21 @@ Release Notes
 * **2013-10-02 : 0.8.1 : go2null**
   * Minor help text cleanup.
   * Moved Release Notes to README.
+
+License
+-------
+    Copyright (C) 2013  go2null
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
