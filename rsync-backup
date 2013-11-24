@@ -22,7 +22,7 @@
 printHelp() {
 printf %s "
 VERSION: 2010-10-02 : 0.8.1 : go2null
-LICENSE: 
+LICENSE:
 USAGE: $(basename -- "$0") -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
 OPTIONS:
   -f FILE      - config file. Can be specified multiple times in order of increasing priority.
@@ -126,14 +126,14 @@ echo "INFO: Backup destination:         $BAK_DIR"
 
 # == VALIDATIONS ================================================= #
 if [ -z "$BAK_DIR" ] || { ! mkdir -p "$BAK_DIR"; } 2>/dev/null; then
-	{ echo "ERROR: Invalid backup directory '$BAK_DIR'. Exiting."; 
-	  exit 1; 
+	{ echo "ERROR: Invalid backup directory '$BAK_DIR'. Exiting.";
+	  exit 1;
 	} >&2
 fi
 # if 'latest' is not a symlink, then it may be a file or dir, and so may have user data
 if [ -e "$BAK_DIR/latest" ] && [ ! -L "$BAK_DIR/latest" ]; then
 	{ echo "ERROR: '$BAK_DIR/latest' should be a symlink to the last backup.";
-	  exit 1; 
+	  exit 1;
 	} >&2
 fi
 
@@ -170,49 +170,49 @@ mkdir "$BAK_DEST_CURR" || { echo "ERROR: Cannot write to backup dir '$BAK_DIR'."
 # == MAIN BACKUP ROUTINE ========================================= #
 COUNTER=1
 while true; do
-        eval "BAK_SRCE_PATH=\$BAK_$COUNTER"
-        eval "PTN=\$PTN_$COUNTER"
-        # stop on 1st blank source
-        if [ -z "$BAK_SRCE_PATH" ]; then
-                break
-        else
-                echo && echo "INFO: Backing up $BAK_SRCE_PATH"
-                # ignore missing sources 
-                if [ -e "$BAK_SRCE_PATH" ]; then
-                        # added "/" before $BAK_SRCE_PATH to allow for relative source paths
-                        #      the "//" in the result is handled correctly by mkdir, ln and rsync
-                        BAK_DEST_PATH="$BAK_DEST_CURR/$BAK_SRCE_PATH"
-                        BAK_LINK_PATH="$BAK_DIR/latest/$BAK_SRCE_PATH"
+	eval "BAK_SRCE_PATH=\$BAK_$COUNTER"
+	eval "PTN=\$PTN_$COUNTER"
+	# stop on 1st blank source
+	if [ -z "$BAK_SRCE_PATH" ]; then
+		break
+	else
+		echo && echo "INFO: Backing up $BAK_SRCE_PATH"
+		# ignore missing sources
+		if [ -e "$BAK_SRCE_PATH" ]; then
+			# added "/" before $BAK_SRCE_PATH to allow for relative source paths
+			#	  the "//" in the result is handled correctly by mkdir, ln and rsync
+			BAK_DEST_PATH="$BAK_DEST_CURR/$BAK_SRCE_PATH"
+			BAK_LINK_PATH="$BAK_DIR/latest/$BAK_SRCE_PATH"
 
-                        # rsync does not create parent directories, only final target directory.
-                        #      creating parent directory as the target may be a file.
-                        BAK_DEST_PARENT=$(dirname -- "$BAK_DEST_PATH")
-                        [ -e "$BAK_DEST_PARENT" ] || mkdir -p "$BAK_DEST_PARENT"
+			# rsync does not create parent directories, only final target directory.
+			#	  creating parent directory as the target may be a file.
+			BAK_DEST_PARENT=$(dirname -- "$BAK_DEST_PATH")
+			[ -e "$BAK_DEST_PARENT" ] || mkdir -p "$BAK_DEST_PARENT"
 
-                        if [ -d "$BAK_DEST_PARENT" ]; then
-							# rsync doesn't sync single files with --link-dest option
-							#      http://stackoverflow.com/questions/7100900/rsync-link-dest-option-for-single-file
-							#      https://bugzilla.samba.org/show_bug.cgi?id=8594
-							if [ -f "$BAK_SRCE_PATH" ]; then
-								# as rsync creates a new file (inode), 
-								#      then the purpose of the ln is to create a target for rsync to minimize data transfer??
-								[ -e "$BAK_LINK_PATH" ] && ln "$BAK_LINK_PATH"                        "$BAK_DEST_PATH"
-								rsync -av                                            "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
-							else
-								# if use "$PTN" and PTN is blank, 
-								#   rsync interprets the ("") as a period (.), and copies from current directory as well.
-								#   http://askubuntu.com/questions/112717/rsync-copies-files-from-working-directory-in-addition-to-the-requested-ones
-								rsync -avx        --link-dest="$BAK_LINK_PATH" $PTN "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
-							fi
-							[ $? -gt 0 ] && echo "WARNING: error occured"
-						else
-							echo "WARNING: Bad destination, skipping."
-						fi
+			if [ -d "$BAK_DEST_PARENT" ]; then
+				# rsync doesn't sync single files with --link-dest option
+				#   http://stackoverflow.com/questions/7100900/rsync-link-dest-option-for-single-file
+				#   https://bugzilla.samba.org/show_bug.cgi?id=8594
+				if [ -f "$BAK_SRCE_PATH" ]; then
+					# as rsync creates a new file (inode),
+					#   then the purpose of the ln is to create a target for rsync to minimize data transfer??
+					[ -e "$BAK_LINK_PATH" ] && ln "$BAK_LINK_PATH"                        "$BAK_DEST_PATH"
+					rsync -av                                            "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
 				else
-					echo "WARNING: source doesn't exist, skipping."
+					# if use "$PTN" and PTN is blank,
+					#   rsync interprets the ("") as a period (.), and copies from current directory as well.
+					#   http://askubuntu.com/questions/112717/rsync-copies-files-from-working-directory-in-addition-to-the-requested-ones
+					rsync -avx         --link-dest="$BAK_LINK_PATH" $PTN "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
 				fi
-                COUNTER=$(($COUNTER+1))
-        fi
+				[ $? -gt 0 ] && echo "WARNING: error occured"
+			else
+				echo "WARNING: Bad destination, skipping."
+			fi
+		else
+			echo "WARNING: source doesn't exist, skipping."
+		fi
+		COUNTER=$(($COUNTER+1))
+	fi
 done
 
 # == PRUNE OLD BACKUPS =========================================== #
