@@ -21,7 +21,7 @@
 # == FUNCTIONS =================================================== #
 printHelp() {
 printf %s "
-VERSION: 2010-10-02 : 0.8.1 : go2null
+VERSION: 2010-11-24 : 0.9.1 : go2null
 LICENSE:
 USAGE: $(basename -- "$0") -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
 OPTIONS:
