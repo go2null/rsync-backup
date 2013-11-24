@@ -6,15 +6,15 @@ backup multiple files and directories in time-stamped directories
 Usage
 -----
         rsync-backup -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
-        
+
 Options
 -------
       -f FILE      - config file. Can be specified multiple times in order of increasing priority.
       -d DIRECTORY - directory to backup to.
-      -k NUMBER    - minimum backups to keep. Default is 1.
-      -K NUMBER    - maximum backups to keep.
-      -s NUMBER    - minimum free space to reserve, in MB.
-      -S NUMBER    - minimum free space to reserve, as %.
+      -k NUMBER    - minimum backups to keep.  Default is 1.
+      -K NUMBER    - maximum backups to keep.  Default is 999999999.
+      -s NUMBER    - minimum free space to reserve, in MB.  Default is 500 MB.
+      -S NUMBER    - minimum free space to reserve, as %.  Default is 5%.
       -o           - by default, -k is overridden when -s or -S is met.
                      This option disables this behaviour. Impact is that the backup is not done if -s or S is met.
       -h           - Display this help.
@@ -83,6 +83,10 @@ Release Notes
 * **2013-10-02 : 0.8.1 : go2null**
   * Minor help text cleanup.
   * Moved Release Notes to README.
+* **2013-11-24 : 0.9.0 : go2null**
+  * NEW: Rsync now searches the last 10 backups for file matches to catch file deletes and restores.
+  * NEW: Rsync now performs a fuzzy search to catch file moves.
+  * Added all default values to help section.
 
 License
 -------
