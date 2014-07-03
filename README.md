@@ -21,9 +21,9 @@ Options
 
 Description
 -----------
-* Creates `YYYY-MM-DD-HHMMSS` directories in `BAK_DIR`
-* Creates a `latest` symlink, pointing to the backup made
-* Creates a `previous` symlink, allow other backup scripts to use a `rsync --link-dest`
+* Creates `YYYY-MM-DD-HHMMSS` directories in `BAK_DIR`.
+* Creates a `latest` symlink, pointing to the backup made.
+* Creates a `previous` symlink, allowing other backup scripts to use `rsync --link-dest`.
 * Example `.conf` file.
 
         BAK_DIR='/var/backups'
