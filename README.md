@@ -1,7 +1,7 @@
 rsync-backup
 ============
 
-backup multiple files and directories in time-stamped directories
+Backup multiple files and directories into time-stamped directories
 
 Usage
 -----
