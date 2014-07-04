@@ -2,7 +2,7 @@
 
 # == LICENSE =====================================================#
 # Backup multiple files and directories into time-stamped directories
-# Copyright (C) 2013  go2null
+# Copyright (C) 2014  go2null <1t1is2@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -196,15 +196,17 @@ while true; do
 					BAK_LINK_PATH="$BAK_DIR/latest/$BAK_SRCE_PATH"
 					# as rsync creates a new file (inode),
 					#   then the purpose of the ln is to create a target for rsync to minimize data transfer??
-					[ -e "$BAK_LINK_PATH" ]  && ln "$BAK_LINK_PATH"                        "$BAK_DEST_PATH"
-					rsync -vahP                                            "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
+					[ -e "$BAK_LINK_PATH" ]  && ln "$BAK_LINK_PATH"                  "$BAK_DEST_PATH"
+					rsync -vahP                                     "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
 				else
 					BAK_LINK_PATH=$(find "$BAK_DIR" -mindepth 1 -maxdepth 1 -type d -regextype sed -regex '.*/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{6\}' |
-						sort -r | tail -10 | sed -e 's|^\(.*\)$|--link-dest=\1\/'"$BAK_SRCE_PATH"'|')
+						sort -r |
+						tail -10 |
+						sed -e 's|^\(.*\)$|--link-dest=\1\/'"$BAK_SRCE_PATH"'|')
 					# if use "$PTN" and PTN is blank,
 					#   rsync interprets the ("") as a period (.), and copies from current directory as well.
 					#   http://askubuntu.com/questions/112717/rsync-copies-files-from-working-directory-in-addition-to-the-requested-ones
-					rsync -vahPxy         --link-dest="$BAK_LINK_PATH" $PTN "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
+					rsync -vahPxy --link-dest="$BAK_LINK_PATH" $PTN "$BAK_SRCE_PATH" "$BAK_DEST_PATH"
 				fi
 				[ $? -gt 0 ] && echo "WARNING: error occured"
 			else
@@ -213,7 +215,7 @@ while true; do
 		else
 			echo "WARNING: source doesn't exist, skipping."
 		fi
-		COUNTER=$(($COUNTER+1))
+		COUNTER=$((COUNTER+1))
 	fi
 done
 
