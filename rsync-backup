@@ -21,7 +21,7 @@
 # == FUNCTIONS =================================================== #
 printHelp() {
 printf %s "
-VERSION: 2010-11-24 : 0.9.1 : go2null
+VERSION: 2010-11-24 : 0.9.2 : go2null
 LICENSE:
 USAGE: $(basename -- "$0") -d DIRECTORY -k NUMBER -K NUMBER -s NUMBER -S NUMBER -o -f FILE
 OPTIONS:
@@ -105,7 +105,6 @@ BAK_SPACE_MIN_MB=500
 BAK_SPACE_MIN_PC=5
 
 # == INPUT PARAMETERS =============================================== #
-# get
 while [ $# -gt 0 ]; do
 	case "$1" in
 		-f) { . "$2"; }            ;;
@@ -120,9 +119,8 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-# == HEADER ==== ================================================= #
+# == HEADER ====================================================== #
 echo "INFO: Backup start time:          $(date +%Y-%m-%d\ %H:%M:%S)"
-echo "INFO: Backup destination:         $BAK_DIR"
 
 # == VALIDATIONS ================================================= #
 if [ -z "$BAK_DIR" ] || { ! mkdir -p "$BAK_DIR"; } 2>/dev/null; then
@@ -136,6 +134,9 @@ if [ -e "$BAK_DIR/latest" ] && [ ! -L "$BAK_DIR/latest" ]; then
 	  exit 1;
 	} >&2
 fi
+
+# == HEADER ====================================================== #
+echo "INFO: Backup destination:         $BAK_DIR"
 
 # == PRUNE OLD BACKUPS =========================================== #
 # set IFS to newline, required for 'for' loops to parse DIR with space in names correctly
