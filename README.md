@@ -87,6 +87,12 @@ Release Notes
   * NEW: Rsync now searches the last 10 backups for file matches to catch file deletes and restores.
   * NEW: Rsync now performs a fuzzy search to catch file moves.
   * Added all default values to help section.
+* **2013-11-24 : 0.9.1 : go2null**
+  * NEW: rsync now uses fuzzy matching.
+  * FIX: minor sed fix.
+  * Minor code cleanup.
+* **2014-07-04 : 0.9.2 : go2null**
+  * Minor updates.
 
 License
 -------
